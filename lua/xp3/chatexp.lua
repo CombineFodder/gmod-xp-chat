@@ -17,7 +17,7 @@ local color_green = Color(0, 200, 0, 255)
 local color_hint = Color(240, 220, 180, 255)
 
 function net.HasOverflowed()
-	return (net.BytesWritten() or 0) >= 65536
+    return (net.BytesWritten() or 0) >= 65536
 end
 
 chatexp.Modes = {
@@ -106,6 +106,7 @@ for k, v in next, chatexp.Modes do
 end
 
 if CLIENT then
+
 	function chatexp.Say(msg, mode, mode_data)
 		local cdata = util.Compress(msg)
 
@@ -160,9 +161,20 @@ else -- CLIENT
 
 	util.AddNetworkString(chatexp.NetTag)
 
+	-- function chatexp.FuckOff(ply)
+	-- 	local m = chatexp.AbuseMode
+
+	-- 	if m == "EarRape" then
+	-- 		ply:SendLua[[local d=vgui.Create'DHTML'd:OpenURL'https://www.youtube.com/watch?v=WevymH75pW8'chat.AddText'dont fuck with chat']]
+	-- 	elseif m == "Kick" then
+	-- 		ply:Kick("Please refrain from touching *bzzzt*")
+	-- 	end
+	-- end
+
 	function chatexp.SayAs(ply, data, mode, mode_data)
 		if #data > 1024 then
-			Msg"CEXP " print"Too much data!"
+			-- chatexp.FuckOff(ply)
+			Msg"CEXP " print"too much Data!"
 			return
 		end
 

@@ -7,10 +7,25 @@ chatbox.settings = {
 	}]]
 }
 
-local box_font = CreateClientConVar("xp_chat_box_font","DermaDefaultBold",true,false,"Changes the Fonts of the chatbox itself.")
-cvars.AddChangeCallback("xp_chat_box_font",function(cv,_,new) chatbox.box_font = new end)
+surface.CreateFont("Arial", {
+	font = "Arial",
+	size = 13,
+	weight = 500,
+	extended = true,	
+})
 
-local feed_font = CreateClientConVar("xp_chat_feed_font","ChatFont",true,false,"Changes the Font of the text displayed inside the chatbox.")
+surface.CreateFont("TrackFont", {
+	font = "Arial",
+	size = 20,
+	weight = 500,
+	extended = true,	
+})
+	
+local box_font = CreateClientConVar("xp_chat_box_font","Arial",true,false,"Changes the Fonts of the chatbox itself.")
+cvars.AddChangeCallback("xp_chat_box_font",function(cv,_,new) chatbox.box_font = new end)
+ chatbox.box_font = "Arial"
+ 
+local feed_font = CreateClientConVar("xp_chat_feed_font","TrackFont",true,false,"Changes the Font of the text displayed inside the chatbox.")
 cvars.AddChangeCallback("xp_chat_feed_font",function(cv,_,new) chatbox.feed_font = new end)
 
 chatbox.accent_color = Color(255, 192, 203, 255)
@@ -147,12 +162,7 @@ function chatbox.ParseInto(feed, ...)
 
 				feed:AppendText(quick_parse(v:Nick()))
 			else
-				local name = (v.Name and isfunction(v.name) and v:Name()) or v.Name or v.PrintName or tostring(v)
-				if v:EntIndex() == 0 then
-					feed:InsertColorChange(106, 90, 205, 255)
-					name = "Console"
-				end
-
+				local name = (v.Nick and v:Nick()) or v.PrintName or tostring(v)
 				feed:AppendText(quick_parse(name))
 			end
 		elseif v ~= nil then
@@ -229,7 +239,9 @@ local function feed_layout(pan)
 end
 
 function chatbox.GetModeString()
-	return (CHATMODE_TEAM and chatbox.mode == CHATMODE_TEAM or chatbox.mode == true) and "Team" or "Chat"
+	local text = chatbox and chatbox.frame and chatbox.frame.chat and chatbox.frame.chat.input:GetValue()
+
+	return (text:sub(1, 1) == "/" or text:sub(1, 1) == "!") and "Cmd" or "Chat"
 end
 
 function chatbox.BuildTabChat(self, a)
@@ -247,6 +259,7 @@ function chatbox.BuildTabChat(self, a)
 			self.chat.input_base:Dock(BOTTOM)
 
 			self.chat.input = vgui.Create("DTextEntry", self.chat.input_base)
+				self.chat.input:SetFont("Arial")
 				self.chat.input:Dock(FILL)
 
 				self.chat.input:SetHistoryEnabled(true)
@@ -349,6 +362,7 @@ function chatbox.AddDMTab(ply)
 		tab.input_base:Dock(BOTTOM)
 
 		tab.input = vgui.Create("DTextEntry", tab.input_base)
+			tab.input:SetFont("Arial")
 			tab.input:Dock(FILL)
 
 			tab.input:SetHistoryEnabled(true)
@@ -434,6 +448,7 @@ local function build_settings_from_table(self, tbl)
 				color.ValueChanged = data.set
 			elseif data.ty == "String" then
 				local text = vgui.Create("DTextEntry", pan)
+				text:SetFont("Arial")
 				text:Dock(LEFT)
 
 				text.OnEnter = function() data.set(text:GetValue()) end
@@ -526,36 +541,8 @@ function chatbox.Build()
 		local a = {}
 
 		chatbox.BuildTabChat(self, a)
-		chatbox.BuildTabDMs(self, a)
+		--chatbox.BuildTabDMs(self, a)
 		--chatbox.BuildTabSettings(self, a)
-
-		if self.direct_messages then
-			self.direct_messages.new = vgui.Create("DButton", self)
-				self.direct_messages.new:SetText("")
-				self.direct_messages.new:SetWide(72)
-
-				function self.direct_messages.new.Paint(pan, w, h)
-					paint_back(pan, w, h, true)
-
-					local text = "New DM"
-					draw.SimpleText(text, chatbox.box_font, w/2, h/2, color_white, TEXT_ALIGN_CENTER, TEXT_ALIGN_CENTER)
-				end
-
-				function self.direct_messages.new.DoClick(pan)
-					local menu = DermaMenu(pan)
-					self.dmSelector = menu
-
-					for k, v in next, player.GetAll() do
-						if v ~= LocalPlayer() then
-							menu:AddOption(v:Nick(), function()
-								if IsValid(v) then chatbox.GiveDMFocus(v) end
-							end):SetIcon(v:GetFriendStatus() == "friend" and "icon16/user_green.png" or "icon16/user.png")
-						end
-					end
-
-					menu:Open()
-				end
-		end
 
 		chatbox.Close(true)
 end
@@ -606,7 +593,6 @@ function chatbox.Open(t)
 		chatbox.mode = t
 	end
 
-	chatbox.frame:SetTitle(GetHostName())
 	chatbox.frame:SetVisible(true)
 	chatbox.frame:MakePopup()
 

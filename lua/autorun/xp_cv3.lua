@@ -1,6 +1,3 @@
-local disable = CreateConVar("xp_chat_disable", "0", {FCVAR_REPLICATED, FCVAR_ARCHIVE})
-if disable:GetBool() then return end
-
 local function includec(...) AddCSLuaFile(...) return include(...) end
 class	= includec"xp3/class.lua"
 luadata	= includec"xp3/luadata.lua"
@@ -31,64 +28,27 @@ end
 includec"xp3/chatexp.lua"
 
 local convar_custom_handle = CreateConVar("xp_chat_force_source_handle", "0", {FCVAR_REPLICATED, FCVAR_ARCHIVE})
-local convar_limited_tags  = CreateConVar("xp_chat_limited_tags",        "0", {FCVAR_REPLICATED, FCVAR_ARCHIVE})
+local convar_limited_tags = CreateConVar("xp_chat_limited_tags", "0", {FCVAR_REPLICATED, FCVAR_ARCHIVE})
 
 hook.Add("ChatShouldHandle", "chatexp.compat", function(handler, msg, mode)
-	if DarkRP then return false end
+	if SCHEMA then return false end
 	if convar_custom_handle:GetBool() then return false end
 end)
 
 if SERVER then
-	AddCSLuaFile"xp3/basewars_compat.lua"
 	AddCSLuaFile"xp3/markup.lua"
 	AddCSLuaFile"xp3/chathud.lua"
 	AddCSLuaFile"xp3/chatbox.lua"
 return end
 
 hook.Add("CanPlayerUseTag", "chathud.restrict", function(ply, tag, args)
-	if not IsValid(ply) then return true end -- chat.addtext, console and such
-
 	if tag:StartWith("dev_") and not ply:IsAdmin() then return false end
 	if convar_limited_tags:GetBool() and tag ~= "color" then return ply:IsAdmin() end
 end)
 
-local showTs = CreateConVar("xp_chat_timestamp_show",    "0", FCVAR_ARCHIVE, "Show timestamps in chat")
-local hour24 = CreateConVar("xp_chat_timestamp_24h",     "1", FCVAR_ARCHIVE, "Display timestamps in a 24-hour format")
-local tsSec  = CreateConVar("xp_chat_timestamp_seconds", "0", FCVAR_ARCHIVE, "Display timestamps with seconds")
-local tickSn = CreateConVar("xp_chat_message_tick",      "1", FCVAR_ARCHIVE, "Enable tick sound when a message is received")
-
-local dgray = Color(150, 150, 150)
-
-local function pad(z)
-	return z >= 10 and tostring(z) or "0" .. z
-end
-
-local zw = "\xE2\x80\x8B"
-local function makeTimeStamp(t, h24, seconds)
-	t[#t + 1] = dgray
-	local d = os.date("*t")
-	if h24 then
-		t[#t + 1] = pad(d.hour) .. ":" .. zw .. pad(d.min) .. zw .. (seconds and ":" .. zw .. pad(d.sec) or "")
-	else
-		local h, pm = d.hour
-		if h > 11 then
-			pm = true
-			h = h > 12 and h - 12 or h
-		elseif h == 0 then
-			h = 12
-		end
-		t[#t + 1] = pad(h) .. ":" .. zw .. pad(d.min) .. zw .. (seconds and ":" .. zw .. pad(d.sec) .. zw or "") .. (pm and " PM" or " AM")
-	end
-	t[#t + 1] = " - "
-end
-
 local function do_hook()
 	local gm = GM or GAMEMODE
 	if not gm then return end
-
-	if BaseWars and not chatexp.Devs then
-		include"xp3/basewars_compat.lua"
-	end
 
 	chatexp._oldGamemodeHook = chatexp._oldGamemodeHook or gm.OnPlayerChat
 	function gm:OnPlayerChat(ply, msg, mode, dead, mode_data)
@@ -104,10 +64,6 @@ local function do_hook()
 		local msgmode = chatexp.Modes[mode]
 		local tbl = {}
 
-		if showTs:GetBool() then
-			makeTimeStamp(tbl, hour24:GetBool(), tsSec:GetBool())
-		end
-
 		local ret
 		if msgmode.Handle then
 			ret = msgmode.Handle(tbl, ply, msg, dead, mode_data)
@@ -120,24 +76,6 @@ local function do_hook()
 		chat.AddText(unpack(tbl))
 		return true
 	end
-
-	local green = Color(120, 219, 87)
-	chatexp._oldGamemodeHook2 = chatexp._oldGamemodeHook2 or gm.ChatText
-	function gm:ChatText(idx, name, text, type)
-		if not IsValid(chatbox.frame) then chatbox.Build() end
-
-		if type == "chat" then
-			chatbox.ParseInto(chatbox.GetChatFeed(), green, name, color_white, ": " .. text)
-			chathud:AddText(green, name, color_white, ": " .. text)
-		return end
-
-		if type == "darkrp" then return end -- Compat for some weird stuff with darkrp
-
-		chatbox.ParseInto(chatbox.GetChatFeed(), green, text)
-		chathud:AddText(green, text)
-
-		return false
-	end
 end
 
 do_hook()
@@ -147,30 +85,6 @@ if chatbox and IsValid(chatbox.frame) then chatbox.frame:Close() end
 
 include"xp3/markup.lua"
 chathud	= include"xp3/chathud.lua"
-
-local fontSize = CreateClientConVar("xp_chathud_font_size", "22", true, false, "Changes the Fonts of the chathud (not the chatbox).")
-
-local function doFonts()
-	surface.CreateFont("chathud_18", {
-		font = "Roboto",
-		extended = true,
-		size = fontSize:GetInt(),
-		weight = 400,
-	})
-
-	surface.CreateFont("chathud_18_blur", {
-		font = "Roboto",
-		extended = true,
-		size = fontSize:GetInt(),
-		weight = 400,
-		blursize = 2,
-	})
-end
-
-cvars.AddChangeCallback("xp_chathud_font_size", function(cv,_,new)
-	doFonts()
-end, "setFontsChathud")
-doFonts()
 
 do -- chathud
 	hook.Add("HUDPaint", "chathud.draw", function()
@@ -241,10 +155,24 @@ function chat.AddText(...)
 
 	chathud:AddText(...)
 
-	if tickSn:GetBool() then
-		chat.PlaySound()
-	end
+	chat.PlaySound()
 end
+
+local green = Color(120, 219, 87)
+
+hook.Add("ChatText", "xp.receive", function(idx, name, text, type)
+	if not IsValid(chatbox.frame) then chatbox.Build() end
+
+	if type == "chat" then
+		chatbox.ParseInto(chatbox.GetChatFeed(), green, name, color_white, ": " .. text)
+		chathud:AddText(green, name, color_white, ": " .. text)
+	return end
+
+	if type == "darkrp" then return end -- Compat for some weird stuff with darkrp
+
+	chatbox.ParseInto(chatbox.GetChatFeed(), green, text)
+	chathud:AddText(green, text)
+end)
 
 -- Start compatability for addons
 
